@@ -25,6 +25,8 @@ const btnSaveSettings = $('#btn-save-settings');
 const btnToggleKey = $('#btn-toggle-key');
 const btnCopy = $('#btn-copy');
 const btnDownload = $('#btn-download');
+const btnDownloadJson = $('#btn-download-json');
+const countBadge = $('#count-badge');
 
 const inputApiKey = $('#input-apikey');
 const selectLang = $('#select-lang');
@@ -176,6 +178,11 @@ async function renderHistory() {
 
   emptyHistory.hidden = true;
 
+  if (countBadge) {
+    countBadge.textContent = list.length;
+    countBadge.hidden = false;
+  }
+
   for (const t of list) {
     const card = document.createElement('div');
     card.className = 'transcript-card';
@@ -211,7 +218,7 @@ async function renderHistory() {
 
     card.querySelector('.btn-card-copy').addEventListener('click', function (e) {
       e.stopPropagation();
-      copyText(t.text);
+      copyText(t.text, e.currentTarget);
     });
 
     card.querySelector('.btn-card-delete').addEventListener('click', function (e) {
@@ -303,7 +310,7 @@ function openTranscript(transcript) {
   showView(viewTranscript);
 }
 
-async function copyText(text) {
+async function copyText(text, feedbackBtn) {
   try {
     await navigator.clipboard.writeText(text);
   } catch (_) {
@@ -314,6 +321,35 @@ async function copyText(text) {
     document.execCommand('copy');
     ta.remove();
   }
+  if (feedbackBtn) {
+    var orig = feedbackBtn.textContent;
+    feedbackBtn.textContent = 'Copié !';
+    feedbackBtn.classList.add('btn-copy-ok');
+    setTimeout(function () {
+      feedbackBtn.textContent = orig;
+      feedbackBtn.classList.remove('btn-copy-ok');
+    }, 1500);
+  }
+}
+
+function downloadJson(transcript) {
+  var exportData = {
+    id: transcript.id,
+    date: transcript.date,
+    duration: transcript.duration,
+    speakers: transcript.speakers,
+    segments: transcript.segments,
+    url: transcript.url,
+    title: transcript.title,
+  };
+  var blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var date = new Date(transcript.date);
+  a.download = 'transcript-' + date.toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadTranscript(transcript) {
@@ -391,11 +427,15 @@ btnToggleKey.addEventListener('click', function () {
 });
 
 btnCopy.addEventListener('click', function () {
-  if (currentTranscript) copyText(currentTranscript.text);
+  if (currentTranscript) copyText(currentTranscript.text, btnCopy);
 });
 
 btnDownload.addEventListener('click', function () {
   if (currentTranscript) downloadTranscript(currentTranscript);
+});
+
+btnDownloadJson.addEventListener('click', function () {
+  if (currentTranscript) downloadJson(currentTranscript);
 });
 
 chrome.runtime.onMessage.addListener(function (msg) {
