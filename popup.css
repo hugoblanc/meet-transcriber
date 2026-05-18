@@ -52,10 +52,11 @@ body {
   align-items: center;
   gap: 8px;
 }
-.brand-dot {
-  width: 14px;height: 14px;border-radius: 4px;
+.brand-mark {
+  width: 22px;height: 22px;border-radius: 6px;
   background: linear-gradient(135deg,var(--fire),#c84520);
-  box-shadow: 0 0 8px var(--glow), inset 0 1px 0 rgba(255,255,255,.25);
+  box-shadow: 0 0 10px var(--glow), inset 0 1px 0 rgba(255,255,255,.25), 0 0 0 .5px rgba(0,0,0,.3);
+  display: flex;align-items: center;justify-content: center;
 }
 .brand-name {
   font-size: 13px;font-weight: 600;letter-spacing: -.01em;color: var(--t2);
