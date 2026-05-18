@@ -1,0 +1,13 @@
+{
+  "name": "meet-transcriber-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "meet-transcriber-mcp": "./mcp-server.js",
+    "meet-transcriber-host": "./native-host.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

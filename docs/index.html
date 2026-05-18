@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meet Transcriber — Free meeting transcription for Google Meet</title>
+<meta name="description" content="Record any Google Meet call, get a diarized transcript in seconds. Open-source Chrome extension. BYOK, no bot, no subscription." />
+
+<meta property="og:title" content="Meet Transcriber — Free meeting transcription" />
+<meta property="og:description" content="Record any Google Meet call, get a diarized transcript in seconds. No bot joins. Free forever." />
+<meta property="og:type" content="website" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg:          #09080c;
+    --bg-2:        #0e0d14;
+    --surface:     rgba(255, 255, 255, 0.04);
+    --surface-2:   rgba(255, 255, 255, 0.08);
+    --border:      rgba(255, 255, 255, 0.09);
+    --border-2:    rgba(255, 255, 255, 0.14);
+    --text:        #f4ecde;
+    --text-dim:    rgba(244, 236, 222, 0.62);
+    --text-faint:  rgba(244, 236, 222, 0.38);
+    --accent:      #ff6a3a;
+    --accent-2:    #ff8d5a;
+    --accent-soft: rgba(255, 106, 58, 0.15);
+    --green:       #5ed66a;
+    --radius-sm:   10px;
+    --radius-md:   16px;
+    --radius-lg:   24px;
+    --ease:        cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .ambient {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(900px 600px at 15% 5%,  rgba(255, 106, 58, 0.15), transparent 55%),
+      radial-gradient(800px 500px at 90% 20%, rgba(255, 140, 90, 0.08), transparent 60%),
+      radial-gradient(600px 400px at 50% 90%, rgba(255, 106, 58, 0.06), transparent 65%);
+  }
+
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    opacity: 0.035; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/></svg>");
+  }
+
+  main { position: relative; z-index: 2; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    background: rgba(9, 8, 12, 0.72);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    max-width: 1160px; margin: 0 auto; padding: 14px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent) 0%, #d85430 100%);
+    display: grid; place-items: center;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 6px 20px -6px var(--accent);
+  }
+  .brand-mark svg { width: 14px; height: 14px; fill: #fff; }
+  .nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; }
+  .nav-links a { color: var(--text-dim); text-decoration: none; transition: color 160ms var(--ease); }
+  .nav-links a:hover { color: var(--text); }
+  .nav-btn {
+    padding: 7px 14px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--border-2);
+    color: var(--text) !important; font-weight: 500;
+  }
+
+  /* Hero */
+  section { padding: 96px 0; }
+  #hero { padding: 72px 0 120px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px 6px 8px; background: var(--surface);
+    border: 1px solid var(--border-2); border-radius: 999px;
+    font-size: 12.5px; color: var(--text-dim); margin-bottom: 28px;
+  }
+  .badge .dot {
+    width: 16px; height: 16px; border-radius: 999px;
+    background: var(--accent); display: grid; place-items: center;
+    color: #fff; font-size: 9px; font-weight: 700;
+  }
+  .badge strong { color: var(--text); font-weight: 500; }
+
+  h1.display {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400; font-size: clamp(46px, 7vw, 92px);
+    line-height: 1.02; letter-spacing: -0.025em;
+    margin-bottom: 22px; max-width: 900px;
+  }
+  h1.display em { font-style: italic; color: var(--accent); }
+
+  .hero-sub {
+    font-size: clamp(17px, 1.4vw, 19px); color: var(--text-dim);
+    max-width: 620px; margin-bottom: 24px; line-height: 1.5;
+  }
+
+  .value-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 36px; }
+  .value-chip {
+    padding: 6px 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; font-size: 13px; color: var(--text); font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .value-chip::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--accent); }
+
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 64px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 22px; border-radius: 12px; text-decoration: none;
+    font-weight: 500; font-size: 15px; transition: all 180ms var(--ease); border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: linear-gradient(180deg, #ff7a4a 0%, #e85a2a 100%); color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 10px 30px -10px rgba(255,106,58,0.6), 0 0 0 1px rgba(255,106,58,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 16px 36px -10px rgba(255,106,58,0.75), 0 0 0 1px rgba(255,106,58,0.4);
+  }
+  .btn-ghost { background: var(--surface-2); color: var(--text); border-color: var(--border-2); }
+  .btn-ghost:hover { background: var(--surface); border-color: rgba(255,255,255,0.2); }
+  .btn small { display: block; font-size: 11.5px; color: rgba(255,255,255,0.7); font-weight: 400; margin-top: 1px; }
+
+  /* 3D mockup */
+  .stage {
+    position: relative; perspective: 1800px; perspective-origin: 50% 30%;
+    height: 640px; margin-top: 24px;
+  }
+  .stage::before {
+    content: ""; position: absolute; inset: auto 0 -40px 0; height: 260px;
+    background: radial-gradient(ellipse at center top, rgba(255,106,58,0.22), transparent 70%);
+    filter: blur(40px); z-index: 0;
+  }
+  .panel { position: absolute; transform-style: preserve-3d; transition: transform 400ms var(--ease); }
+  .panel-main {
+    top: 70px; left: 50%; width: 380px;
+    transform: translateX(-50%) rotateX(14deg) rotateY(-14deg); z-index: 3;
+  }
+  .panel-main:hover { transform: translateX(-50%) rotateX(8deg) rotateY(-8deg) translateZ(30px); }
+  .panel-settings {
+    top: 30px; left: -30px; width: 340px;
+    transform: rotateX(18deg) rotateY(22deg) translateZ(-80px); opacity: 0.85; z-index: 1;
+  }
+  .panel-history {
+    top: 140px; right: -20px; width: 320px;
+    transform: rotateX(14deg) rotateY(-28deg) translateZ(-100px); opacity: 0.72; z-index: 2;
+  }
+
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%), rgba(16,14,22,0.7);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 0 0 0.5px rgba(0,0,0,0.4), 0 24px 60px -20px rgba(0,0,0,0.8), 0 60px 120px -40px rgba(0,0,0,0.5);
+    padding: 22px; overflow: hidden; position: relative;
+  }
+  .card::after {
+    content: ""; position: absolute; bottom: -1px; left: 0; right: 0; height: 50%;
+    background: linear-gradient(180deg, transparent, rgba(255,106,58,0.04)); pointer-events: none;
+  }
+
+  /* Waveform in 3D mockup */
+  .waveform-mock { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 56px; margin-bottom: 18px; }
+  .waveform-mock span {
+    flex: 1; max-width: 5px; border-radius: 99px;
+    background: linear-gradient(180deg, #ff9a6c, #ff6a3a 60%, #d14020);
+    animation: wave 1.2s ease-in-out infinite;
+  }
+  .waveform-mock span:nth-child(3n) { animation-delay: 0.1s; }
+  .waveform-mock span:nth-child(3n+1) { animation-delay: 0.25s; }
+  .waveform-mock span:nth-child(3n+2) { animation-delay: 0.4s; }
+  @keyframes wave { 0%, 100% { height: 20%; } 50% { height: 90%; } }
+
+  .status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .rec-badge { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+  .rec-badge .dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #ff5a3a;
+    animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,90,58,0.6); }
+    80%  { box-shadow: 0 0 0 14px rgba(255,90,58,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,90,58,0); }
+  }
+  .timer-mock { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 600; }
+
+  .capsule {
+    padding: 9px 18px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(255,255,255,0.14);
+  }
+  .capsule-primary { background: rgba(255,90,58,0.15); color: var(--accent); border-color: rgba(255,90,58,0.3); }
+
+  /* Settings mockup */
+  .mock-field { margin-bottom: 10px; }
+  .mock-label { font-size: 10.5px; color: var(--text-faint); margin-bottom: 4px; }
+  .mock-input {
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 7px; padding: 7px 10px; font-size: 11px; color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace; width: 100%;
+  }
+  .mock-select {
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 7px; padding: 7px 10px; font-size: 11px; color: var(--text-dim); width: 100%;
+  }
+  .mock-title { font-size: 13px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+
+  /* History mockup */
+  .hist-row {
+    display: flex; padding: 10px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 11.5px;
+  }
+  .hist-row:last-child { border-bottom: 0; }
+  .hist-text { flex: 1; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-meta { color: var(--accent-2); font-weight: 500; margin-left: 10px; font-size: 10px; }
+
+  /* Section headers */
+  .section-label {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); font-weight: 600; margin-bottom: 14px;
+  }
+  h2.section-title {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(36px, 5vw, 56px); font-weight: 400;
+    line-height: 1.05; letter-spacing: -0.02em;
+    margin-bottom: 16px; max-width: 800px;
+  }
+  h2.section-title em { color: var(--accent); font-style: italic; }
+  .section-sub { font-size: 17px; color: var(--text-dim); max-width: 640px; margin-bottom: 48px; line-height: 1.5; }
+
+  /* MCP section (like Super Mode) */
+  .mcp-card {
+    background: linear-gradient(135deg, rgba(255,106,58,0.14) 0%, rgba(255,106,58,0.02) 60%), rgba(18,15,22,0.5);
+    border: 1px solid rgba(255,106,58,0.2); border-radius: var(--radius-lg);
+    padding: 48px; display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: center;
+    box-shadow: 0 40px 80px -40px rgba(255,106,58,0.25);
+  }
+  .mcp-card h3 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 48px; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 16px;
+  }
+  .mcp-card h3 em { color: var(--accent); font-style: italic; }
+  .mcp-card > div > p { color: var(--text-dim); font-size: 16px; margin-bottom: 16px; }
+  .mcp-card ul { list-style: none; padding: 0; margin-top: 22px; }
+  .mcp-card ul li {
+    padding: 10px 0; color: var(--text-dim); font-size: 14.5px;
+    border-top: 1px solid var(--border); display: flex; gap: 10px;
+  }
+  .mcp-card ul li::before { content: "\2192"; color: var(--accent); font-weight: 600; }
+  .mcp-demo {
+    background: rgba(0,0,0,0.4); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 20px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  }
+  .mcp-step { margin-bottom: 16px; padding-left: 18px; position: relative; }
+  .mcp-step::before {
+    content: ""; position: absolute; left: 0; top: 6px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .mcp-step-label { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px; }
+  .mcp-step-text { color: var(--text); font-size: 13px; }
+  .mcp-step-text.cmd { color: var(--accent-2); }
+  .mcp-step-text.output { color: var(--green); }
+
+  /* Features grid */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .feature {
+    padding: 28px; border-radius: var(--radius-md);
+    background: var(--surface); border: 1px solid var(--border);
+    transition: all 240ms var(--ease);
+  }
+  .feature:hover { border-color: var(--border-2); transform: translateY(-2px); box-shadow: 0 20px 40px -20px rgba(0,0,0,0.6); }
+  .feature-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: var(--accent-soft); border: 1px solid rgba(255,106,58,0.25);
+    display: grid; place-items: center; margin-bottom: 18px; color: var(--accent);
+  }
+  .feature-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .feature h4 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .feature p { color: var(--text-dim); font-size: 14px; line-height: 1.55; }
+
+  /* Comparison */
+  .compare-wrap { overflow-x: auto; }
+  table.compare {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    overflow: hidden; background: var(--surface);
+  }
+  table.compare th, table.compare td { padding: 18px 20px; text-align: left; border-bottom: 1px solid var(--border); }
+  table.compare tr:last-child td { border-bottom: 0; }
+  table.compare thead { background: rgba(255,255,255,0.03); }
+  table.compare th { color: var(--text-dim); font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
+  table.compare th.us { color: var(--accent); font-weight: 700; letter-spacing: 0; text-transform: none; font-size: 15px; }
+  table.compare td:first-child { color: var(--text); font-weight: 500; width: 22%; }
+  table.compare td.us { color: var(--text); background: rgba(255,106,58,0.04); font-weight: 500; }
+  table.compare .yes { color: var(--green); }
+  table.compare .no { color: var(--text-faint); }
+  table.compare .note { color: var(--text-dim); font-size: 13px; }
+
+  /* Story */
+  .story-card {
+    padding: 48px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); max-width: 820px;
+  }
+  .story-card p {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 22px; line-height: 1.45; color: var(--text); margin-bottom: 18px;
+  }
+  .story-card p:last-of-type { margin-bottom: 0; }
+  .story-card em { font-style: italic; color: var(--accent); }
+  .story-author { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 14px; }
+  .story-author strong { color: var(--text); font-weight: 600; }
+
+  /* Final CTA */
+  .final-cta {
+    text-align: center; padding: 80px 40px;
+    background: radial-gradient(ellipse at center, rgba(255,106,58,0.12), transparent 70%), var(--surface);
+    border: 1px solid var(--border-2); border-radius: var(--radius-lg);
+  }
+  .final-cta h2 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(36px, 5vw, 56px); font-weight: 400; line-height: 1.05;
+    letter-spacing: -0.02em; margin-bottom: 16px;
+  }
+  .final-cta p { color: var(--text-dim); font-size: 17px; margin-bottom: 32px; }
+  .final-cta .cta-row { justify-content: center; margin-bottom: 0; }
+  .final-cta-sub { margin-top: 28px; font-size: 13px; color: var(--text-faint); }
+
+  /* Footer */
+  footer { padding: 48px 0 32px; border-top: 1px solid var(--border); margin-top: 64px; }
+  .foot-inner {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 24px; flex-wrap: wrap; color: var(--text-faint); font-size: 13px;
+  }
+  .foot-links { display: flex; gap: 20px; }
+  .foot-links a { color: var(--text-dim); text-decoration: none; }
+  .foot-links a:hover { color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .features { grid-template-columns: 1fr; }
+    .mcp-card { grid-template-columns: 1fr; padding: 32px; }
+    .mcp-card h3 { font-size: 36px; }
+    .panel-settings, .panel-history { display: none; }
+    .panel-main { transform: translateX(-50%) rotateX(4deg) rotateY(0); width: 90%; max-width: 380px; }
+    .stage { height: 520px; }
+    .nav-links a:not(.nav-btn) { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .waveform-mock span { animation: none; height: 50%; }
+    .rec-badge .dot { animation: none; }
+    * { scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="ambient" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<main>
+
+<nav>
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      </div>
+      Meet Transcriber
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#compare">Compare</a>
+      <a href="#mcp">MCP</a>
+      <a href="#install" class="nav-btn">Install free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="wrap">
+    <div class="badge">
+      <span class="dot">!</span>
+      <span>Open-source &middot; <strong>Free forever</strong></span>
+    </div>
+
+    <h1 class="display">Your meetings,<br><em>transcribed.</em></h1>
+
+    <p class="hero-sub">
+      Click record, have your Google Meet call. Get a speaker-labeled transcript in seconds.
+      No bot joins. No subscription. Just your own OpenAI key.
+    </p>
+
+    <div class="value-chips">
+      <span class="value-chip">No bot in the call</span>
+      <span class="value-chip">Speaker diarization</span>
+      <span class="value-chip">BYOK &mdash; ~$0.36/hour</span>
+      <span class="value-chip">Works on any tab</span>
+    </div>
+
+    <div class="cta-row">
+      <a href="#install" class="btn btn-primary">
+        <span>Install Chrome Extension<small>Chrome Web Store &middot; free</small></span>
+      </a>
+      <a href="https://github.com/hugoblanc/meet-transcriber" class="btn btn-ghost">
+        <span>View source<small>MIT license</small></span>
+      </a>
+    </div>
+
+    <!-- 3D mockup -->
+    <div class="stage">
+
+      <!-- Settings panel, back-left -->
+      <div class="panel panel-settings">
+        <div class="card">
+          <div class="mock-title">Settings</div>
+          <div class="mock-field">
+            <div class="mock-label">OpenAI API Key</div>
+            <div class="mock-input">sk-proj-****...****</div>
+          </div>
+          <div class="mock-field">
+            <div class="mock-label">Language</div>
+            <div class="mock-select">Fran&ccedil;ais</div>
+          </div>
+          <div class="mock-field">
+            <div class="mock-label">Your name</div>
+            <div class="mock-input">Hugo</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History panel, back-right -->
+      <div class="panel panel-history">
+        <div class="card">
+          <div class="mock-title" style="font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-faint)">History</div>
+          <div class="hist-row"><span class="hist-text">Sprint Review &mdash; Hugo, Marie</span><span class="hist-meta">32 min</span></div>
+          <div class="hist-row"><span class="hist-text">Product sync &mdash; Hugo, Thomas</span><span class="hist-meta">15 min</span></div>
+          <div class="hist-row"><span class="hist-text">Client onboarding &mdash; Hugo, Claire</span><span class="hist-meta">48 min</span></div>
+          <div class="hist-row"><span class="hist-text">Design review &mdash; Hugo, Paul</span><span class="hist-meta">22 min</span></div>
+        </div>
+      </div>
+
+      <!-- Main recording panel -->
+      <div class="panel panel-main">
+        <div class="card">
+          <div class="waveform-mock">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="status-row">
+            <div class="rec-badge"><span class="dot"></span> Recording</div>
+            <span class="timer-mock">2:34</span>
+          </div>
+          <div style="display:flex;justify-content:center;margin-top:14px">
+            <span class="capsule capsule-primary">
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><rect width="14" height="14" rx="2"/></svg>
+              Stop
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- MCP BRIDGE -->
+<section id="mcp">
+  <div class="wrap">
+    <div class="section-label">Exclusive</div>
+    <h2 class="section-title">Talk to your meetings<br>from <em>Claude.</em></h2>
+    <p class="section-sub">The only transcription tool with a native MCP bridge. Claude reads your transcripts directly. No copy-paste, no export.</p>
+
+    <div class="mcp-card">
+      <div>
+        <h3>MCP <em>Bridge</em></h3>
+        <p>A local MCP server exposes your transcripts to any AI assistant that supports the Model Context Protocol. Ask Claude about your meetings in natural language.</p>
+        <ul>
+          <li>"Summarize my last meeting"</li>
+          <li>"What did Marie say about the cache?"</li>
+          <li>"List all action items from this week"</li>
+          <li>Full-text search across all transcripts</li>
+        </ul>
+      </div>
+      <div class="mcp-demo">
+        <div class="mcp-step">
+          <div class="mcp-step-label">1 &middot; You ask Claude</div>
+          <div class="mcp-step-text cmd">"What were the performance metrics from today's sprint review?"</div>
+        </div>
+        <div class="mcp-step">
+          <div class="mcp-step-label">2 &middot; Claude calls search_transcripts</div>
+          <div class="mcp-step-text">[Hugo] Et les m&eacute;triques de perf, on en est o&ugrave; ?<br>[Marie] Le temps de r&eacute;ponse moyen est pass&eacute; de 450ms &agrave; 120ms.</div>
+        </div>
+        <div class="mcp-step">
+          <div class="mcp-step-label">3 &middot; Claude answers</div>
+          <div class="mcp-step-text output">Average response time improved from 450ms to 120ms after cache optimization, per Marie's report in today's sprint review.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything you need,<br><em>nothing</em> you don't.</h2>
+    <p class="section-sub">No account. No server. No telemetry. Just a Chrome extension and your API key.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+        </div>
+        <h4>No bot in the call</h4>
+        <p>Captures audio from your browser tab directly. No "AI Notetaker has joined" embarrassment.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h4>Speaker diarization</h4>
+        <p>Automatic speaker labels powered by OpenAI's gpt-4o-transcribe-diarize. Pin your own voice for stable names.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <h4>Works on any tab</h4>
+        <p>Google Meet, YouTube, Loom, any browser audio. Not limited to a single platform.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h4>Privacy first</h4>
+        <p>Audio goes directly from your browser to OpenAI. No intermediary server. Audio deleted after transcription.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h4>MCP for Claude</h4>
+        <p>Native Model Context Protocol bridge. Ask Claude about your meetings without copy-pasting transcripts.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h4>Open source</h4>
+        <p>MIT licensed. Read every line of code. Fork it, extend it, ship it to your team.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="compare">
+  <div class="wrap">
+    <div class="section-label">Comparison</div>
+    <h2 class="section-title">vs. the paid <em>alternatives</em>.</h2>
+    <p class="section-sub">Same features. No subscription. Your API key costs ~$0.36 per hour of meeting.</p>
+
+    <div class="compare-wrap">
+      <table class="compare">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="us">Meet Transcriber</th>
+            <th>Otter.ai</th>
+            <th>Fireflies</th>
+            <th>Fathom</th>
+            <th>Tactiq</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Price</td>
+            <td class="us"><span class="yes">Free (BYOK)</span></td>
+            <td>$8/mo</td>
+            <td>$10/mo</td>
+            <td>$19/mo</td>
+            <td>$8/mo</td>
+          </tr>
+          <tr>
+            <td>No bot joins</td>
+            <td class="us"><span class="yes">&#10003;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Speaker labels</td>
+            <td class="us"><span class="yes">&#10003;</span></td>
+            <td><span class="yes">&#10003;</span></td>
+            <td><span class="yes">&#10003;</span></td>
+            <td><span class="yes">&#10003;</span></td>
+            <td><span class="no">&#10007;</span></td>
+          </tr>
+          <tr>
+            <td>MCP / AI bridge</td>
+            <td class="us"><span class="yes">&#10003; Native</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+          </tr>
+          <tr>
+            <td>Open source</td>
+            <td class="us"><span class="yes">MIT</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+            <td><span class="no">&#10007;</span></td>
+          </tr>
+          <tr>
+            <td>No server / account</td>
+            <td class="us"><span class="yes">&#10003;</span></td>
+            <td><span class="no">Account required</span></td>
+            <td><span class="no">Account required</span></td>
+            <td><span class="no">Account required</span></td>
+            <td><span class="no">Account required</span></td>
+          </tr>
+          <tr>
+            <td>Data stays local</td>
+            <td class="us"><span class="yes">&#10003;</span></td>
+            <td><span class="no">Cloud</span></td>
+            <td><span class="no">Cloud</span></td>
+            <td><span class="no">Cloud</span></td>
+            <td class="note">Partial</td>
+          </tr>
+          <tr>
+            <td>Unlimited recordings</td>
+            <td class="us"><span class="yes">&#10003;</span></td>
+            <td class="note">300 min/mo free</td>
+            <td class="note">800 min/mo free</td>
+            <td><span class="yes">&#10003;</span></td>
+            <td class="note">10/mo free</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- STORY -->
+<section id="story">
+  <div class="wrap">
+    <div class="section-label">Origin</div>
+    <h2 class="section-title">Paid <em>$10/month</em> for an API wrapper.</h2>
+
+    <div class="story-card">
+      <p>I was paying for a meeting transcription SaaS. One day I looked at the request in DevTools. It was sending my audio to <em>the same OpenAI Whisper API</em> I already had a key for.</p>
+      <p>So I built this in a weekend with Claude. Same quality, no subscription, no data leaving my machine except to OpenAI directly. Then I added an MCP bridge so Claude can <em>read my meeting notes natively</em>.</p>
+      <p>Total cost for a one-hour meeting: <em>$0.36</em>. That's the API call. The extension is free. Forever.</p>
+
+      <div class="story-author">
+        <strong>Hugo Blanc</strong> &middot; Developer, Lyon &middot; Built with Claude
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section id="install">
+  <div class="wrap">
+    <div class="final-cta">
+      <h2>Stop paying for an <em>API wrapper</em>.</h2>
+      <p>Install the extension, add your OpenAI key, record your next meeting.</p>
+      <div class="cta-row">
+        <a href="#" class="btn btn-primary">
+          <span>Install Chrome Extension<small>Free &middot; open source</small></span>
+        </a>
+        <a href="https://github.com/hugoblanc/meet-transcriber" class="btn btn-ghost">
+          <span>GitHub<small>Star &amp; contribute</small></span>
+        </a>
+      </div>
+      <p class="final-cta-sub">Chrome 116+ &middot; Requires an OpenAI API key &middot; MIT License</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-inner">
+      <span>Built in Lyon by Hugo Blanc &middot; Part of the Whisper Voice ecosystem</span>
+      <div class="foot-links">
+        <a href="https://github.com/hugoblanc/meet-transcriber">GitHub</a>
+        <a href="https://hugoblanc.github.io/whisper-voice/">Whisper Voice</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Parallax on 3D stage -->
+<script>
+(function() {
+  var stage = document.querySelector('.stage');
+  if (!stage || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var panels = stage.querySelectorAll('.panel');
+  var cx = 0, cy = 0, tx = 0, ty = 0;
+  document.addEventListener('mousemove', function(e) {
+    tx = (e.clientX / window.innerWidth - 0.5) * 2;
+    ty = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+  function tick() {
+    cx += (tx - cx) * 0.08;
+    cy += (ty - cy) * 0.08;
+    panels.forEach(function(p) {
+      var rx = -cy * 3;
+      var ry = cx * 5;
+      p.style.transform = p.dataset.base + ' rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+    });
+    requestAnimationFrame(tick);
+  }
+  panels.forEach(function(p) {
+    var m = p.style.transform || getComputedStyle(p).transform;
+    p.dataset.base = p.className.includes('panel-main')
+      ? 'translateX(-50%) rotateX(14deg) rotateY(-14deg)'
+      : p.className.includes('panel-settings')
+      ? 'rotateX(18deg) rotateY(22deg) translateZ(-80px)'
+      : 'rotateX(14deg) rotateY(-28deg) translateZ(-100px)';
+  });
+  tick();
+})();
+</script>
+
+</body>
+</html>

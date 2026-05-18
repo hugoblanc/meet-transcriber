@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="ambient"></div>
+
+  <div id="app">
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-mark"></div>
+        <span class="header-title">Meet Transcriber</span>
+      </div>
+      <button class="icon-btn" id="btn-settings" title="Réglages">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Main view -->
+    <div id="view-main" class="view active">
+
+      <div id="setup-banner" class="banner banner-warn" hidden>
+        <p>Clé API OpenAI requise pour transcrire.</p>
+        <button class="btn btn-sm btn-accent" id="btn-setup">Configurer</button>
+      </div>
+
+      <div class="controls">
+
+        <!-- Idle -->
+        <div id="ctrl-idle">
+          <div class="idle-visual">
+            <div class="mic-icon-large">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </div>
+          </div>
+          <button class="btn btn-accent btn-lg" id="btn-start">Démarrer</button>
+          <p class="hint" id="hint-text">Prêt à transcrire</p>
+        </div>
+
+        <!-- Recording -->
+        <div id="ctrl-recording" hidden>
+          <div class="recording-card">
+            <div class="waveform" id="waveform"></div>
+            <div class="recording-status">
+              <div class="rec-dot-pulse"></div>
+              <span class="rec-label">Recording</span>
+              <span class="timer" id="timer">0:00</span>
+            </div>
+          </div>
+          <div id="mic-warning" class="banner banner-warn banner-sm" hidden>
+            <p>Micro non disponible — audio onglet uniquement</p>
+          </div>
+          <button class="btn btn-stop btn-lg" id="btn-stop">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect width="14" height="14" rx="2"/></svg>
+            Stop
+          </button>
+        </div>
+
+        <!-- Transcribing -->
+        <div id="ctrl-transcribing" hidden>
+          <div class="transcribing-card">
+            <div class="spinner"></div>
+            <p class="transcribing-text">Transcription en cours…</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" id="btn-cancel">Annuler</button>
+        </div>
+
+        <!-- Error -->
+        <div id="ctrl-error" hidden>
+          <div class="banner banner-error">
+            <p id="error-text"></p>
+            <div class="banner-actions">
+              <button class="btn btn-sm btn-accent" id="btn-retry">Réessayer</button>
+              <button class="btn btn-sm btn-ghost" id="btn-dismiss">Fermer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div id="history-section">
+        <div class="section-header">
+          <span class="section-title">Historique</span>
+        </div>
+        <div id="transcript-list" class="transcript-list">
+          <p class="empty-state" id="empty-history">Aucun transcript</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings view -->
+    <div id="view-settings" class="view">
+      <div class="view-header">
+        <button class="icon-btn" id="btn-back-settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h2>Réglages</h2>
+      </div>
+      <div class="settings-form">
+        <div class="field">
+          <label for="input-apikey">Clé API OpenAI</label>
+          <div class="input-group">
+            <input type="password" id="input-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+            <button class="icon-btn" id="btn-toggle-key" title="Afficher / masquer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="select-lang">Langue</label>
+          <select id="select-lang">
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+            <option value="it">Italiano</option>
+            <option value="pt">Português</option>
+            <option value="nl">Nederlands</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="input-username">Votre nom</label>
+          <input type="text" id="input-username" placeholder="Hugo">
+          <p class="field-hint">Pour l'étiquetage des locuteurs</p>
+        </div>
+        <button class="btn btn-accent" id="btn-save-settings">Enregistrer</button>
+        <div id="settings-status" class="status-msg" hidden></div>
+      </div>
+    </div>
+
+    <!-- Transcript detail view -->
+    <div id="view-transcript" class="view">
+      <div class="view-header">
+        <button class="icon-btn" id="btn-back-transcript">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 id="transcript-title">Transcript</h2>
+      </div>
+      <div class="transcript-content" id="transcript-content"></div>
+      <div class="transcript-actions">
+        <button class="btn btn-accent" id="btn-copy">Copier</button>
+        <button class="btn btn-surface" id="btn-download">Télécharger .md</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
