@@ -155,6 +155,49 @@
         <button class="btn btn-surface" id="btn-download">Export .md</button>
         <button class="btn btn-surface" id="btn-download-json">Export .json</button>
       </div>
+
+      <!-- AI Templates -->
+      <div class="ai-section" id="ai-section">
+        <div class="ai-bar">
+          <span class="section-title" style="padding:0">AI</span>
+        </div>
+        <div class="ai-pills" id="ai-pills"></div>
+        <div class="ai-loading" id="ai-loading" hidden>
+          <div class="spinner"></div>
+          <span class="transcribing-text">Analyse en cours…</span>
+        </div>
+        <div class="ai-result" id="ai-result" hidden>
+          <div class="ai-result-header">
+            <span class="ai-result-title" id="ai-result-title"></span>
+            <button class="icon-btn" id="btn-copy-ai" title="Copier">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <div class="ai-result-content" id="ai-result-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template manager view -->
+    <div id="view-templates" class="view">
+      <div class="view-header">
+        <button class="icon-btn" id="btn-back-templates">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h2>Templates AI</h2>
+      </div>
+      <div class="settings-form" id="templates-list"></div>
+      <div class="settings-form" style="border-top:1px solid var(--border);padding-top:16px">
+        <div class="field">
+          <label for="new-tpl-name">Nouveau template</label>
+          <input type="text" id="new-tpl-name" placeholder="Nom (ex: Compte-rendu client)">
+        </div>
+        <div class="field">
+          <label for="new-tpl-prompt">Prompt</label>
+          <textarea id="new-tpl-prompt" rows="4" placeholder="Instructions pour l'IA..." style="width:100%;padding:9px 12px;border:1px solid var(--border-2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);resize:vertical"></textarea>
+        </div>
+        <button class="btn btn-accent" id="btn-add-template">Ajouter</button>
+      </div>
     </div>
   </div>
   <script src="popup.js"></script>

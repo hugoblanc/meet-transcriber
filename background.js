@@ -65,6 +65,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       });
       return true;
 
+    case 'GET_TEMPLATES':
+      chrome.storage.local.get('aiTemplates').then(function (data) {
+        sendResponse({ templates: data.aiTemplates || null });
+      });
+      return true;
+
+    case 'SAVE_TEMPLATES':
+      chrome.storage.local
+        .set({ aiTemplates: msg.templates })
+        .then(function () { sendResponse({ success: true }); });
+      return true;
+
     case 'GET_TRANSCRIPTS':
       chrome.storage.local.get({ transcripts: [] }).then(sendResponse);
       return true;
