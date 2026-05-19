@@ -19,16 +19,31 @@ cd "$SCRIPT_DIR"
 npm install --silent 2>/dev/null
 echo "  ✓ Dependencies installed"
 
-# 2. Make scripts executable
+# 2. Detect absolute Node path (Chrome native messaging doesn't use the user's PATH)
+NODE_BIN="$(which node 2>/dev/null)"
+if [ -z "$NODE_BIN" ]; then
+  echo "  ✗ node not found in PATH. Install Node.js first."
+  exit 1
+fi
+# Resolve symlinks to get the real path (e.g. fnm, nvm, brew)
+NODE_BIN="$(realpath "$NODE_BIN" 2>/dev/null || readlink -f "$NODE_BIN" 2>/dev/null || echo "$NODE_BIN")"
+echo "  ✓ Node.js: $NODE_BIN"
+
+# 3. Patch shebangs to use absolute Node path (Chrome doesn't have user PATH)
+sed -i.bak "1s|^#!.*|#!${NODE_BIN}|" "$SCRIPT_DIR/native-host.js"
+sed -i.bak "1s|^#!.*|#!${NODE_BIN}|" "$SCRIPT_DIR/mcp-server.js"
+rm -f "$SCRIPT_DIR/native-host.js.bak" "$SCRIPT_DIR/mcp-server.js.bak"
+
+# 4. Make scripts executable
 chmod +x "$SCRIPT_DIR/mcp-server.js"
 chmod +x "$SCRIPT_DIR/native-host.js"
 echo "  ✓ Scripts made executable"
 
-# 3. Create data directory
+# 5. Create data directory
 mkdir -p "$DATA_DIR"
 echo "  ✓ Data directory: $DATA_DIR"
 
-# 4. Get extension ID
+# 6. Get extension ID
 echo ""
 echo "→ Extension ID needed for native messaging."
 echo "  Find it on chrome://extensions (enable Developer Mode)."
@@ -41,7 +56,7 @@ if [ -z "$EXT_ID" ]; then
   exit 1
 fi
 
-# 5. Register native messaging host for Chrome
+# 7. Register native messaging host for Chrome
 CHROME_NM_DIR="$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
 mkdir -p "$CHROME_NM_DIR"
 
@@ -60,7 +75,7 @@ EOF
 echo "  ✓ Native messaging host registered"
 echo "    $CHROME_NM_DIR/$HOST_NAME.json"
 
-# 6. Output Claude Code MCP config
+# 8. Output Claude Code MCP config
 echo ""
 echo "════════════════════════════════════════"
 echo ""

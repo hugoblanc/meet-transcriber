@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/Users/hugoblanc/.local/share/fnm/node-versions/v22.14.0/installation/bin/node
 // Native messaging host — receives transcripts from Chrome extension, writes to disk
 
 import fs from 'fs';
