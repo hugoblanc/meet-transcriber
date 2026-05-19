@@ -1,0 +1,56 @@
+# Meet Transcriber
+
+> A Chrome extension that records Google Meet (or any tab) audio, transcribes it with speaker diarization via OpenAI `gpt-4o-transcribe-diarize`, and exposes the resulting transcripts to AI agents via a local MCP server.
+
+This project is meant to be used by humans through a Chrome extension AND by AI agents (Claude, ChatGPT, custom) through MCP. The extension stores transcripts in two places:
+
+- `chrome.storage.local` (always) — read by the extension UI
+- `~/.meet-transcriber/transcripts/*.json` (when the native messaging host is installed) — read by the MCP server
+
+The MCP server (`mcp/mcp-server.js`) reads transcripts from disk and exposes them to any MCP-compatible client. Agents should use it to answer questions about meetings.
+
+## How an agent should use this
+
+1. Discover available transcripts with `list_transcripts` (metadata only — date, duration, speakers, title, 200-char preview).
+2. If the user asks about the most recent meeting, use `get_latest_transcript`.
+3. For a specific meeting, use `get_transcript` with the id returned by step 1.
+4. To find a keyword/topic across all meetings, use `search_transcripts` (returns excerpts with 80-char context window around matches).
+
+Transcripts are markdown-formatted with `[Speaker] text` blocks. Speakers are either:
+- Raw diarize labels (`A`, `B`, `C`, `D`) — anonymous voice clusters from the model
+- Or human names — if the user renamed them through the extension UI (the rename is non-destructive, stored as `speakerAliases` overlay; the on-disk text uses the renamed form)
+
+## MCP tools
+
+- [list_transcripts](mcp/mcp-server.js): Lists all transcripts with metadata and a short preview. No arguments.
+- [get_transcript](mcp/mcp-server.js): Returns the full markdown of one transcript. Argument: `id` (string, timestamp-based).
+- [get_latest_transcript](mcp/mcp-server.js): Returns the full markdown of the most recent transcript. No arguments.
+- [search_transcripts](mcp/mcp-server.js): Case-insensitive substring search across all transcripts. Argument: `query` (string). Returns matching ids + excerpts.
+
+## Setup for agents
+
+- [MCP.md](MCP.md): Copy-paste config for Claude Code, Claude Desktop, Cursor, and generic MCP clients.
+- [README.md](README.md): User-facing install guide for the extension itself.
+
+## Architecture (for agents modifying this codebase)
+
+- `manifest.json`: MV3 Chrome extension manifest
+- `background.js`: Service worker — orchestration, state, transcript storage, native messaging
+- `offscreen.html` / `offscreen.js`: Recording host — captures tab + mic audio, periodic chunking every 20 min (under the 1500s / 25min hard limit of `gpt-4o-transcribe-diarize`)
+- `transcribe.js`: Shared pipeline — multipart upload, parallel chunk transcription, speaker reference clips for cross-chunk continuity (`known_speaker_names[]` + `known_speaker_references[]`), result merging with time offsets
+- `popup.html` / `popup.js`: Recording controls, history list, settings
+- `meeting.html` / `meeting.js` / `meeting.css`: Full-page transcript view — copy/export, AI templates (single-shot or multi-stage for >25min), speaker renaming, chat with meeting (streaming SSE)
+- `import.html` / `import.js`: Drag-drop import of existing audio files (any format) — decodes with Web Audio API, splits into 20-min WAV chunks, runs the same diarize pipeline
+- `mcp/mcp-server.js`: stdio-based MCP server, reads transcripts from `~/.meet-transcriber/transcripts/`
+- `mcp/native-host.js`: Native messaging host — Chrome → disk bridge, called from `background.syncTranscriptToDisk()`
+- `mcp/install.sh`: One-shot installer that registers the native host and prints the MCP client config
+
+## Key constraints
+
+- OpenAI `gpt-4o-transcribe-diarize` hard-limits input to 1500 seconds (25 min) per request. This codebase splits anything longer into ~20-min chunks transparently.
+- API key is BYOK (bring your own key). Stored in `chrome.storage.local`. Never transmitted anywhere except `api.openai.com`.
+- Speaker reference clips are 2–10 second WAV slices at 24kHz mono, base64-encoded as data URLs in multipart form-data. The model accepts up to 4 references.
+
+## Optional
+
+- [docs/](docs/): Additional documentation if present.

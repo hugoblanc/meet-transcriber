@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Meet Transcriber — Importer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="meeting.css">
+</head>
+<body class="meeting-page">
+
+  <div class="toolbar toolbar--full">
+    <div class="toolbar-brand">
+      <div class="brand-mark"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2h2a5 5 0 0 0 10 0h2zM11 19.93V23h2v-3.07a9 9 0 0 0 0 0z" opacity=".7"/></svg></div>
+      <span class="brand-name">Meet Transcriber</span>
+    </div>
+  </div>
+
+  <main class="page active">
+    <div class="page-inner">
+      <header class="page-header">
+        <h1 class="page-title">Importer un fichier audio</h1>
+        <div class="page-meta">Transcription via gpt-4o-transcribe-diarize · découpage automatique pour les longs fichiers</div>
+      </header>
+
+      <div id="drop-zone" class="drop-zone">
+        <input type="file" id="file-input" accept="audio/*,video/webm" hidden>
+        <div class="drop-zone-icon">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div class="drop-zone-title">Glisse un fichier ou clique pour choisir</div>
+        <div class="drop-zone-hint">Formats : .webm, .mp3, .m4a, .wav, .ogg, .flac</div>
+      </div>
+
+      <div id="progress" class="import-progress" hidden>
+        <div class="processing-ring"></div>
+        <div class="import-progress-text">
+          <div id="progress-label" class="import-progress-title">Décodage…</div>
+          <div id="progress-detail" class="import-progress-detail"></div>
+        </div>
+      </div>
+
+      <div id="error-box" class="notice notice--error" hidden>
+        <p id="error-msg"></p>
+      </div>
+    </div>
+  </main>
+
+  <script src="transcribe.js"></script>
+  <script src="import.js"></script>
+</body>
+</html>

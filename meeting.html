@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Meet Transcriber — Transcript</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="meeting.css">
+</head>
+<body class="meeting-page">
+
+  <!-- ── Topbar ── -->
+  <div class="toolbar toolbar--full">
+    <div class="toolbar-brand">
+      <div class="brand-mark"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2h2a5 5 0 0 0 10 0h2zM11 19.93V23h2v-3.07a9 9 0 0 0 0 0z" opacity=".7"/></svg></div>
+      <span class="brand-name">Meet Transcriber</span>
+    </div>
+  </div>
+
+  <!-- ── Transcript view ── -->
+  <main id="view-transcript" class="page view active">
+    <div class="page-inner">
+      <header class="page-header">
+        <h1 class="page-title" id="transcript-title">Transcript</h1>
+        <div class="page-meta" id="transcript-meta"></div>
+      </header>
+
+      <div class="export-row">
+        <button class="capsule capsule--ghost" id="btn-copy">Copier</button>
+        <button class="capsule capsule--ghost" id="btn-download">.md</button>
+        <button class="capsule capsule--ghost" id="btn-download-json">.json</button>
+        <button class="capsule capsule--ghost capsule--danger" id="btn-delete">Supprimer</button>
+      </div>
+
+      <section class="speakers-section" id="speakers-section" hidden>
+        <div class="list-header"><span class="list-label">Locuteurs</span></div>
+        <div class="speakers-grid" id="speakers-grid"></div>
+      </section>
+
+      <div class="transcript-body transcript-body--full" id="transcript-content"></div>
+
+      <!-- AI Templates -->
+      <section class="ai-section">
+        <div class="list-header"><span class="list-label">AI</span></div>
+        <div class="ai-pills" id="ai-pills"></div>
+        <div class="ai-loading" id="ai-loading" hidden>
+          <div class="processing-ring processing-ring--sm"></div>
+          <span class="processing-label" id="ai-loading-label">Analyse en cours…</span>
+        </div>
+        <div class="ai-result" id="ai-result" hidden>
+          <div class="ai-result-bar">
+            <span class="ai-result-title" id="ai-result-title"></span>
+            <button class="tool-btn" id="btn-copy-ai" title="Copier">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <div class="ai-result-body" id="ai-result-content"></div>
+        </div>
+      </section>
+
+      <!-- Chat with meeting -->
+      <section class="chat-section">
+        <div class="list-header"><span class="list-label">Chat avec la réunion</span>
+          <button class="tool-btn chat-clear" id="btn-chat-clear" title="Effacer la conversation" hidden>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>
+        <div class="chat-thread" id="chat-thread"></div>
+        <form class="chat-form" id="chat-form">
+          <textarea
+            id="chat-input"
+            class="chat-input"
+            placeholder="Pose une question sur la réunion…"
+            rows="1"
+          ></textarea>
+          <button type="submit" class="chat-send" id="chat-send" title="Envoyer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </form>
+      </section>
+
+      <p class="page-empty" id="page-empty" hidden>Transcript introuvable.</p>
+    </div>
+  </main>
+
+  <!-- ── Templates view ── -->
+  <div id="view-templates" class="page view">
+    <div class="page-inner">
+      <div class="view-bar view-bar--inset">
+        <button class="tool-btn" id="btn-back-templates" title="Retour">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 class="view-bar-title">Templates AI</h2>
+      </div>
+      <div class="form-body" id="templates-list"></div>
+      <div class="form-body" style="border-top:1px solid var(--b1)">
+        <div class="field"><label for="new-tpl-name">Nouveau template</label><input type="text" id="new-tpl-name" placeholder="Nom (ex: Compte-rendu client)"></div>
+        <div class="field"><label for="new-tpl-prompt">Prompt</label><textarea id="new-tpl-prompt" rows="4" placeholder="Instructions pour l'IA…"></textarea></div>
+        <button class="capsule capsule--accent" id="btn-add-template">Ajouter</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="meeting.js"></script>
+</body>
+</html>

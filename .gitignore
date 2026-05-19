@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 *.log
+
+# One-off restore pages embed real transcript data — keep local, never commit.
+restore.html
+restore.*.html

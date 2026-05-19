@@ -53,31 +53,36 @@ The extension captures both the tab audio (remote participants) and your microph
 
 ### MCP Bridge (optional)
 
-Connect your transcripts to Claude so you can ask questions about your meetings.
+Connect your transcripts to Claude (or any MCP-compatible agent) so you can ask questions about your meetings.
 
 ```bash
 cd mcp
 ./install.sh
 ```
 
-The script will:
-- Install Node.js dependencies
-- Register the native messaging host with Chrome
-- Output the MCP config to add to Claude Code
+The script installs Node deps, registers the native messaging host with Chrome, then prints the MCP client config to paste into Claude Code / Claude Desktop / Cursor.
 
-Then in Claude, you can say:
+Then in your agent, you can say:
 - *"Summarize my last meeting"*
 - *"What did Marie say about the cache?"*
 - *"List all my transcripts from this week"*
 
-#### MCP Tools
-
 | Tool | Description |
 |---|---|
-| `list_transcripts` | List all transcripts with metadata (date, duration, speakers) |
-| `get_transcript` | Get the full text of a specific transcript |
-| `get_latest_transcript` | Get the most recent transcript |
-| `search_transcripts` | Full-text search across all transcripts |
+| `list_transcripts` | List all transcripts (metadata + 200-char preview, no full text) |
+| `get_transcript` | Full markdown of one transcript by `id` |
+| `get_latest_transcript` | Full markdown of the most recent transcript |
+| `search_transcripts` | Case-insensitive substring search across all transcripts |
+
+**Full setup guide with client-specific configs:** [MCP.md](MCP.md).
+
+### For AI agents
+
+If you're an AI agent looking at this repo, start with [llms.txt](llms.txt) — it has a structured overview of the architecture and the MCP API surface, written for you.
+
+Raw URLs (once pushed):
+- `https://raw.githubusercontent.com/hugoblanc/meet-transcriber/main/llms.txt`
+- `https://raw.githubusercontent.com/hugoblanc/meet-transcriber/main/MCP.md`
 
 ## Architecture
 

@@ -1,10 +1,18 @@
-// offscreen.js — Audio capture, Web Audio mixing, MediaRecorder, OpenAI API
+// offscreen.js — Audio capture + chunked recording. Transcription logic lives in transcribe.js.
+
+const CHUNK_DURATION_MS = 20 * 60 * 1000; // 20 min — under the 1500s/25min hard limit of gpt-4o-transcribe-diarize
 
 let recorder = null;
 let audioContext = null;
+let mixDest = null;
 let streams = [];
-let chunks = [];
-let lastBlob = null;
+let currentChunkData = [];
+let recordedChunks = []; // { blob, startMs, endMs }
+let recordingStartTime = 0;
+let chunkStartTime = 0;
+let chunkTimer = null;
+let stopping = false;
+let lastChunks = null;
 
 chrome.runtime.onMessage.addListener((msg) => {
   switch (msg.type) {
@@ -15,8 +23,8 @@ chrome.runtime.onMessage.addListener((msg) => {
       stopCapture();
       break;
     case 'RETRY_TRANSCRIPTION':
-      if (lastBlob) {
-        transcribe(lastBlob);
+      if (lastChunks) {
+        runTranscription(lastChunks);
       } else {
         chrome.runtime.sendMessage({
           type: 'CAPTURE_ERROR',
@@ -41,14 +49,11 @@ async function startCapture(streamId) {
 
     streams = [tabStream];
     audioContext = new AudioContext();
-    const mixDest = audioContext.createMediaStreamDestination();
+    mixDest = audioContext.createMediaStreamDestination();
     const tabSource = audioContext.createMediaStreamSource(tabStream);
-
     tabSource.connect(mixDest);
-    // tabCapture mutes speaker output — re-route so user still hears the call
     tabSource.connect(audioContext.destination);
 
-    // Mic capture: graceful fallback if permission not granted
     let hasMic = false;
     try {
       const micStream = await navigator.mediaDevices.getUserMedia({
@@ -57,7 +62,6 @@ async function startCapture(streamId) {
       });
       const micSource = audioContext.createMediaStreamSource(micStream);
       micSource.connect(mixDest);
-      // Never connect mic to audioContext.destination (user would hear themselves)
       streams.push(micStream);
       hasMic = true;
     } catch (micErr) {
@@ -68,24 +72,11 @@ async function startCapture(streamId) {
       track.onended = () => stopCapture();
     });
 
-    chunks = [];
-    recorder = new MediaRecorder(mixDest.stream, {
-      mimeType: 'audio/webm;codecs=opus',
-      audioBitsPerSecond: 32000,
-    });
+    recordedChunks = [];
+    recordingStartTime = Date.now();
+    stopping = false;
+    startChunkRecorder();
 
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      lastBlob = blob;
-      chunks = [];
-      transcribe(blob);
-    };
-
-    recorder.start();
     chrome.runtime.sendMessage({ type: 'CAPTURE_STARTED', hasMic });
   } catch (err) {
     chrome.runtime.sendMessage({
@@ -95,7 +86,54 @@ async function startCapture(streamId) {
   }
 }
 
+function startChunkRecorder() {
+  currentChunkData = [];
+  chunkStartTime = Date.now();
+
+  recorder = new MediaRecorder(mixDest.stream, {
+    mimeType: 'audio/webm;codecs=opus',
+    audioBitsPerSecond: 32000,
+  });
+
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) currentChunkData.push(e.data);
+  };
+
+  recorder.onstop = () => {
+    if (chunkTimer) {
+      clearTimeout(chunkTimer);
+      chunkTimer = null;
+    }
+
+    const blob = new Blob(currentChunkData, { type: 'audio/webm' });
+    recordedChunks.push({
+      blob,
+      startMs: chunkStartTime - recordingStartTime,
+      endMs: Date.now() - recordingStartTime,
+    });
+
+    if (stopping) {
+      runTranscription(recordedChunks);
+    } else {
+      startChunkRecorder();
+    }
+  };
+
+  recorder.start();
+
+  chunkTimer = setTimeout(() => {
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
+    }
+  }, CHUNK_DURATION_MS);
+}
+
 function stopCapture() {
+  stopping = true;
+  if (chunkTimer) {
+    clearTimeout(chunkTimer);
+    chunkTimer = null;
+  }
   if (recorder && recorder.state === 'recording') {
     recorder.stop();
   }
@@ -103,76 +141,35 @@ function stopCapture() {
     stream.getTracks().forEach((t) => t.stop());
   }
   streams = [];
-  if (audioContext && audioContext.state !== 'closed') {
-    audioContext.close();
-    audioContext = null;
-  }
 }
 
-async function transcribe(blob) {
+async function runTranscription(chunks) {
   try {
     const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
     const apiKey = settings && settings.apiKey;
     const language = (settings && settings.language) || 'fr';
+    if (!apiKey) throw new Error('Clé API OpenAI non configurée');
 
-    if (!apiKey) {
-      throw new Error('Clé API OpenAI non configurée');
+    lastChunks = chunks;
+
+    const { segments, metadata } = await transcribeChunks(chunks, {
+      apiKey,
+      language,
+      onProgress: (p) => chrome.runtime.sendMessage({ type: 'TRANSCRIPTION_PROGRESS', ...p }),
+    });
+
+    // Fallback duration from wall clock if model returned nothing
+    if (!metadata.duration && recordingStartTime) {
+      metadata.duration = (Date.now() - recordingStartTime) / 1000;
     }
 
-    if (blob.size > 25 * 1024 * 1024) {
-      throw new Error(
-        'Fichier trop volumineux (' +
-          Math.round(blob.size / 1024 / 1024) +
-          ' Mo). Limite : 25 Mo. Essayez un enregistrement plus court.',
-      );
-    }
-
-    const fd = new FormData();
-    fd.append('file', blob, 'meeting.webm');
-    fd.append('model', 'gpt-4o-transcribe-diarize');
-    fd.append('response_format', 'diarized_json');
-    fd.append('chunking_strategy', 'auto');
-    fd.append('language', language || 'fr');
-
-    const response = await fetch(
-      'https://api.openai.com/v1/audio/transcriptions',
-      {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + apiKey },
-        body: fd,
-      },
-    );
-
-    if (!response.ok) {
-      const text = await response.text();
-      if (response.status === 401) {
-        throw new Error('Clé API invalide. Vérifiez vos réglages.');
-      }
-      if (response.status === 429) {
-        throw new Error(
-          'Limite de requêtes atteinte. Réessayez dans quelques instants.',
-        );
-      }
-      throw new Error(
-        'Erreur OpenAI (' + response.status + ') : ' + text.slice(0, 200),
-      );
-    }
-
-    const data = await response.json();
-    const segments = data.segments || [];
-
-    const speakers = [
-      ...new Set(segments.map((s) => s.speaker).filter(Boolean)),
-    ];
-    const duration =
-      segments.length > 0 ? Math.max(...segments.map((s) => s.end || 0)) : 0;
-
-    lastBlob = null;
+    lastChunks = null;
+    cleanup();
 
     chrome.runtime.sendMessage({
       type: 'TRANSCRIPTION_COMPLETE',
       segments,
-      metadata: { speakers, duration },
+      metadata,
     });
   } catch (err) {
     chrome.runtime.sendMessage({
@@ -180,4 +177,15 @@ async function transcribe(blob) {
       error: err.message,
     });
   }
+}
+
+function cleanup() {
+  if (audioContext && audioContext.state !== 'closed') {
+    audioContext.close();
+    audioContext = null;
+  }
+  mixDest = null;
+  recorder = null;
+  currentChunkData = [];
+  recordedChunks = [];
 }

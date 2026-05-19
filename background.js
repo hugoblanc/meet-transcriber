@@ -257,15 +257,37 @@ async function handleTranscriptionComplete(segments, metadata) {
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 4000);
 
   const durationMin = Math.round(entry.duration / 60);
-  chrome.notifications.create('transcript-ready', {
+  chrome.notifications.create(`transcript-ready:${entry.id}`, {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title: 'Transcript prêt',
     message: `Réunion du ${now.toLocaleDateString('fr-FR')} — ${durationMin} min`,
+    buttons: [{ title: 'Ouvrir' }],
   });
 
   await closeOffscreen();
 }
+
+function openTranscriptTab(id) {
+  const url = chrome.runtime.getURL('meeting.html') + '?id=' + encodeURIComponent(id);
+  chrome.tabs.create({ url });
+}
+
+chrome.notifications.onButtonClicked.addListener((notifId) => {
+  if (notifId.startsWith('transcript-ready:')) {
+    const id = notifId.slice('transcript-ready:'.length);
+    openTranscriptTab(id);
+    chrome.notifications.clear(notifId);
+  }
+});
+
+chrome.notifications.onClicked.addListener((notifId) => {
+  if (notifId.startsWith('transcript-ready:')) {
+    const id = notifId.slice('transcript-ready:'.length);
+    openTranscriptTab(id);
+    chrome.notifications.clear(notifId);
+  }
+});
 
 async function handleTranscriptionError(error, canRetry) {
   const session = await getSession();
