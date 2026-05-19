@@ -85,6 +85,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       handleDeleteTranscript(msg.id).then(sendResponse);
       return true;
 
+    case 'SYNC_ALL_TO_DISK':
+      syncAllTranscriptsToDisk().then(sendResponse);
+      return true;
+
     case 'RETRY_TRANSCRIPTION':
       handleRetry()
         .then(sendResponse)
@@ -308,15 +312,33 @@ async function handleTranscriptionError(error, canRetry) {
 
 const NATIVE_HOST = 'com.meettranscriber.bridge';
 
-function syncTranscriptToDisk(entry) {
+async function syncTranscriptToDisk(entry) {
   try {
-    chrome.runtime.sendNativeMessage(NATIVE_HOST, {
+    const res = await chrome.runtime.sendNativeMessage(NATIVE_HOST, {
       type: 'SAVE_TRANSCRIPT',
       transcript: entry,
     });
-  } catch (_) {
-    // Native host not installed — silent fail, transcripts still in chrome.storage
+    if (res && res.error) {
+      console.warn('[MCP sync] native host returned error:', res.error);
+      return { ok: false, error: res.error };
+    }
+    return { ok: true, path: res && res.path };
+  } catch (e) {
+    // Native host not installed or comm failed — transcript still lives in chrome.storage
+    console.warn('[MCP sync] sendNativeMessage failed:', e && e.message);
+    return { ok: false, error: (e && e.message) || 'unknown' };
   }
+}
+
+async function syncAllTranscriptsToDisk() {
+  const { transcripts = [] } = await chrome.storage.local.get({ transcripts: [] });
+  const results = { total: transcripts.length, synced: 0, errors: [] };
+  for (const t of transcripts) {
+    const r = await syncTranscriptToDisk(t);
+    if (r.ok) results.synced++;
+    else results.errors.push({ id: t.id, error: r.error });
+  }
+  return results;
 }
 
 function formatTranscript(segments, metadata, date) {

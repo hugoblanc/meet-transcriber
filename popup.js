@@ -377,6 +377,43 @@ btnToggleKey.addEventListener('click', function () {
   inputApiKey.type = inputApiKey.type === 'password' ? 'text' : 'password';
 });
 
+document.getElementById('btn-sync-disk').addEventListener('click', async function () {
+  const btn = this;
+  const status = document.getElementById('sync-status');
+  btn.disabled = true;
+  const origLabel = btn.textContent;
+  btn.textContent = 'Synchronisation…';
+  status.hidden = true;
+
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'SYNC_ALL_TO_DISK' });
+    status.hidden = false;
+    if (res && res.errors && res.errors.length > 0) {
+      status.className = 'status-msg';
+      status.style.background = 'rgba(255,160,60,.06)';
+      status.style.border = '1px solid rgba(255,160,60,.18)';
+      status.style.color = '#e8a040';
+      status.textContent =
+        res.synced + ' / ' + res.total + ' synchronisé(s). Erreurs : ' +
+        res.errors.map(function (e) { return e.id + ' → ' + e.error; }).join('; ');
+    } else {
+      status.className = 'status-msg success';
+      status.style = '';
+      status.textContent = res.synced + ' / ' + res.total + ' transcripts écrits sur disque.';
+    }
+  } catch (e) {
+    status.hidden = false;
+    status.className = 'status-msg';
+    status.style.background = 'rgba(255,90,58,.06)';
+    status.style.border = '1px solid rgba(255,90,58,.12)';
+    status.style.color = '#ff8a6a';
+    status.textContent = 'Erreur : ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origLabel;
+  }
+});
+
 chrome.runtime.onMessage.addListener(function (msg) {
   var relevant = [
     'TRANSCRIPTION_COMPLETE',
